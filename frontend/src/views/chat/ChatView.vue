@@ -89,7 +89,8 @@ import {
   Code,
   RotateCw,
   Filter,
-  StickyNote
+  StickyNote,
+  ArrowLeft
 } from 'lucide-vue-next'
 import { getInitials, getAvatarGradient } from '@/lib/utils'
 import { useColorMode } from '@/composables/useColorMode'
@@ -1705,7 +1706,7 @@ async function sendMediaMessage() {
 <template>
   <div class="flex h-full bg-[#0a0a0b] light:bg-gray-50">
     <!-- Contacts List -->
-    <div class="w-80 border-r border-white/[0.08] light:border-gray-200 flex flex-col bg-[#0a0a0b] light:bg-white">
+    <div class="w-full md:w-80 border-r border-white/[0.08] light:border-gray-200 flex-col bg-[#0a0a0b] light:bg-white" :class="contactId ? 'hidden md:flex' : 'flex'">
       <!-- Search Header -->
       <div class="p-2 border-b border-white/[0.08] light:border-gray-200">
         <div class="flex items-center gap-2">
@@ -1855,7 +1856,7 @@ async function sendMediaMessage() {
     </div>
 
     <!-- Chat Area -->
-    <div class="flex-1 flex flex-col bg-[#0f0f10] light:bg-gray-50">
+    <div class="flex-1 min-w-0 flex-col bg-[#0f0f10] light:bg-gray-50" :class="contactId ? 'flex' : 'hidden md:flex'">
       <!-- No Contact Selected -->
       <div
         v-if="!contactsStore.currentContact"
@@ -1873,17 +1874,26 @@ async function sendMediaMessage() {
       <!-- Chat Interface -->
       <template v-else>
         <!-- Chat Header -->
-        <div class="h-14 flex-shrink-0 px-4 border-b border-white/[0.08] light:border-gray-200 flex items-center justify-between bg-[#0f0f10] light:bg-white">
-          <div class="flex items-center gap-2">
+        <div class="h-14 flex-shrink-0 px-2 md:px-4 border-b border-white/[0.08] light:border-gray-200 flex items-center justify-between gap-2 bg-[#0f0f10] light:bg-white">
+          <div class="flex items-center gap-2 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              class="md:hidden h-8 w-8 flex-shrink-0 text-white/70 light:text-gray-700"
+              :aria-label="$t('common.back', 'Back')"
+              @click="router.push('/chat')"
+            >
+              <ArrowLeft class="h-5 w-5" />
+            </Button>
             <Avatar class="h-8 w-8 ring-2 ring-white/[0.1] light:ring-gray-200">
               <AvatarImage :src="contactsStore.currentContact.avatar_url" />
               <AvatarFallback :class="'text-xs bg-gradient-to-br text-white ' + getAvatarGradient(contactsStore.currentContact.name || contactsStore.currentContact.phone_number)">
                 {{ getInitials(contactsStore.currentContact.name || contactsStore.currentContact.phone_number) }}
               </AvatarFallback>
             </Avatar>
-            <div>
+            <div class="min-w-0">
               <div class="flex items-center gap-1.5">
-                <p class="text-sm font-medium text-white light:text-gray-900">
+                <p class="text-sm font-medium text-white light:text-gray-900 truncate">
                   {{ contactsStore.currentContact.name || contactsStore.currentContact.phone_number }}
                 </p>
                 <Badge v-if="activeTransferId" class="text-[10px] h-5 bg-orange-500/20 text-orange-400 light:bg-orange-100 light:text-orange-700">
@@ -1898,7 +1908,7 @@ async function sendMediaMessage() {
               </p>
             </div>
           </div>
-          <div class="flex items-center gap-1">
+          <div class="flex items-center gap-1 flex-shrink min-w-0 overflow-x-auto">
             <CallButton
               v-if="contactsStore.currentContact?.phone_number && selectedAccount && isBusinessCallingEnabled"
               :contact-id="contactsStore.currentContact.id"

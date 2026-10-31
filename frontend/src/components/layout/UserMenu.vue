@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from '@/components/ui/alert-dialog'
-import { LogOut, User } from 'lucide-vue-next'
+import { Code, LogOut, User } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { getInitials } from '@/lib/utils'
 import ThemeSwitcher from './ThemeSwitcher.vue'
@@ -234,6 +234,17 @@ const handleLogout = () => {
         <div class="px-1.5 py-1">
           <LanguageSwitcher />
         </div>
+        <Separator class="my-1 bg-white/[0.08] light:bg-gray-200" />
+        <!-- AGPL-3.0 §13: users of this modified version over a network are offered its source. -->
+        <a
+          href="https://github.com/hefson-1/business-connect"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex w-full items-center rounded-md px-2 py-1 text-[13px] text-white/70 hover:text-white hover:bg-white/[0.04] light:text-gray-600 light:hover:text-gray-900 light:hover:bg-gray-100"
+        >
+          <Code class="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+          <span>Source code (AGPL-3.0)</span>
+        </a>
         <Separator class="my-1 bg-white/[0.08] light:bg-gray-200" />
         <Button
           variant="ghost"

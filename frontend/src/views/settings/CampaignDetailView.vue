@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { campaignsService, templatesService, api } from '@/services/api'
+import { campaignsService, templatesService, contactsService, tagsService, api } from '@/services/api'
 import { wsService } from '@/services/websocket'
 import { toast } from 'vue-sonner'
 import { useUnsavedChangesGuard } from '@/composables/useUnsavedChangesGuard'
@@ -75,6 +75,7 @@ import {
   FileSpreadsheet,
   ChevronDown,
   Download,
+  Tags,
 } from 'lucide-vue-next'
 
 interface Campaign {
@@ -195,6 +196,8 @@ const showMediaUpload = ref(false)
 const recipientsInput = ref('')
 const addRecipientsTab = ref('manual')
 const csvFile = ref<File | null>(null)
+const availableTags = ref<string[]>([])
+const selectedTags = ref<string[]>([])
 
 // --- Selected template for param extraction ---
 const selectedTemplate = ref<Template | null>(null)
@@ -562,6 +565,76 @@ async function loadRecipients() {
   }
 }
 
+async function loadTags() {
+  try {
+    const response = await tagsService.list({ limit: 100 })
+    availableTags.value = ((response.data as any).data?.tags || []).map((t: any) => t.name)
+  } catch {
+    availableTags.value = []
+  }
+}
+
+function toggleTag(tag: string) {
+  selectedTags.value = selectedTags.value.includes(tag)
+    ? selectedTags.value.filter(t => t !== tag)
+    : [...selectedTags.value, tag]
+}
+
+// Bulk-send to every contact that has ANY of the selected tags (a contact "group").
+async function addRecipientsFromTags() {
+  if (!campaign.value || selectedTags.value.length === 0) return
+  isAddingRecipients.value = true
+  try {
+    const existing = new Set(recipients.value.map(r => r.phone_number))
+    const list: { phone_number: string; recipient_name?: string }[] = []
+    for (let page = 1; ; page++) {
+      const response = await contactsService.list({ tags: selectedTags.value.join(','), page, limit: 100 })
+      const contacts = (response.data as any).data?.contacts || []
+      for (const c of contacts) {
+        if (c.marketing_opt_out || existing.has(c.phone_number)) continue
+        existing.add(c.phone_number)
+        list.push({ phone_number: c.phone_number, recipient_name: c.name || undefined })
+      }
+      if (contacts.length < 100) break
+    }
+    if (list.length === 0) {
+      toast.error(t('campaigns.noContactsForTags', 'No new contacts found with the selected tags'))
+      return
+    }
+    // shortcut: one request for the whole tag audience; chunk it if Meta-scale lists (50K+) are needed.
+    const response = await campaignsService.addRecipients(campaign.value.id, list)
+    const result = (response.data as any).data
+    toast.success(t('campaigns.addedRecipients', { count: result?.added_count || list.length }, `Added ${result?.added_count || list.length} recipients`))
+    showAddRecipientsDialog.value = false
+    selectedTags.value = []
+    await loadCampaign()
+    await loadRecipients()
+  } catch (err: unknown) {
+    toast.error(getErrorMessage(err, t('campaigns.addRecipientsFailed', 'Failed to add recipients')))
+  } finally {
+    isAddingRecipients.value = false
+  }
+}
+
+function csvCell(v: unknown): string {
+  const s = v == null ? '' : String(v)
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+function exportReport() {
+  if (!campaign.value) return
+  const rows = [['phone_number', 'name', 'status', 'sent_at', 'delivered_at', 'error']]
+  for (const r of recipients.value) {
+    rows.push([r.phone_number, r.recipient_name, r.status, r.sent_at || '', r.delivered_at || '', r.error_message || ''])
+  }
+  const blob = new Blob([rows.map(row => row.map(csvCell).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `${campaign.value.name.replace(/[^\w-]+/g, '_')}_report.csv`
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
 async function deleteRecipient(recipientId: string) {
   if (!campaign.value) return
   deletingRecipientId.value = recipientId
@@ -581,6 +654,8 @@ async function openAddRecipientsDialog() {
   recipientsInput.value = ''
   csvFile.value = null
   addRecipientsTab.value = 'manual'
+  selectedTags.value = []
+  loadTags()
 
   // Fetch template details if needed
   if (campaign.value?.template_id && !selectedTemplate.value) {
@@ -1002,6 +1077,16 @@ onUnmounted(() => {
           {{ $t('campaigns.cancel', 'Cancel') }}
         </Button>
 
+        <Button
+          v-if="!isNew && campaign && recipients.length > 0"
+          variant="outline"
+          size="sm"
+          @click="exportReport"
+        >
+          <Download class="h-4 w-4 mr-1" />
+          {{ $t('campaigns.exportReport', 'Export Report') }}
+        </Button>
+
         <!-- Retry Failed -->
         <Button
           v-if="!isNew && campaign && canRetryFailed"
@@ -1355,6 +1440,10 @@ onUnmounted(() => {
             <FileSpreadsheet class="h-4 w-4 mr-1" />
             {{ $t('campaigns.csvUpload', 'CSV Upload') }}
           </TabsTrigger>
+          <TabsTrigger value="tags" class="flex-1">
+            <Tags class="h-4 w-4 mr-1" />
+            {{ $t('campaigns.contactTags', 'Contact Tags') }}
+          </TabsTrigger>
         </TabsList>
 
         <!-- Manual Entry Tab -->
@@ -1438,6 +1527,32 @@ onUnmounted(() => {
             >
               <FileSpreadsheet class="h-4 w-4 mr-1" />
               {{ isAddingRecipients ? $t('common.importing', 'Importing...') : $t('campaigns.importCSV', 'Import CSV') }}
+            </Button>
+          </DialogFooter>
+        </TabsContent>
+        <!-- Contact Tags Tab -->
+        <TabsContent value="tags" class="space-y-3 mt-3">
+          <Label class="text-xs text-muted-foreground">
+            {{ $t('campaigns.tagsHint', 'Send to every contact that has any of the selected tags. Opted-out contacts and numbers already added are skipped.') }}
+          </Label>
+          <p v-if="templateBodyParamNames.length > 0 || templateHeaderParamName" class="text-xs text-destructive">
+            {{ $t('campaigns.tagsNeedNoParams', 'This template has variables. Use Manual Entry or CSV to supply values per recipient.') }}
+          </p>
+          <div v-if="availableTags.length === 0" class="text-sm text-muted-foreground py-4 text-center">
+            {{ $t('campaigns.noTags', 'No tags yet. Tag contacts under Settings > Tags.') }}
+          </div>
+          <div v-else class="flex flex-wrap gap-2">
+            <button v-for="tag in availableTags" :key="tag" type="button" @click="toggleTag(tag)">
+              <Badge :variant="selectedTags.includes(tag) ? 'default' : 'outline'">{{ tag }}</Badge>
+            </button>
+          </div>
+          <DialogFooter>
+            <Button
+              @click="addRecipientsFromTags"
+              :disabled="isAddingRecipients || selectedTags.length === 0 || templateBodyParamNames.length > 0 || !!templateHeaderParamName"
+            >
+              <Tags class="h-4 w-4 mr-1" />
+              {{ isAddingRecipients ? $t('common.adding', 'Adding...') : $t('campaigns.addRecipients', 'Add Recipients') }}
             </Button>
           </DialogFooter>
         </TabsContent>

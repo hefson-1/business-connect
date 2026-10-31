@@ -242,7 +242,7 @@ async function updateContactTags(tags: string[]) {
 
 <template>
   <div
-    class="flex flex-col bg-card h-full relative"
+    class="flex flex-col bg-card h-full relative max-md:fixed max-md:inset-0 max-md:z-40 max-md:!w-full"
     :style="{ width: `${panelWidth}px` }"
   >
     <!-- Resize Handle -->

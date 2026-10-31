@@ -16,7 +16,9 @@ const props = defineProps<{
 
 <template>
   <ScrollAreaRoot :class="cn('relative overflow-hidden', props.class)">
-    <ScrollAreaViewport class="h-full w-full rounded-[inherit]">
+    <ScrollAreaViewport
+      :class="cn('h-full w-full rounded-[inherit]', orientation !== 'horizontal' && orientation !== 'both' && '[&>div]:!min-w-0')"
+    >
       <slot />
     </ScrollAreaViewport>
     <ScrollAreaScrollbar

@@ -705,17 +705,17 @@ onMounted(() => {
   <div class="flex flex-col h-full bg-[#0a0a0b] light:bg-gray-50">
     <!-- Header -->
     <header class="border-b border-white/[0.08] light:border-gray-200 bg-[#0a0a0b]/95 light:bg-white/95 backdrop-blur">
-      <div class="flex h-16 items-center px-6">
+      <div class="flex flex-wrap md:flex-nowrap min-h-16 items-center gap-y-2 px-4 py-3 md:px-6 md:py-0">
         <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center mr-3 shadow-lg shadow-emerald-500/20">
           <LayoutDashboard class="h-4 w-4 text-white" />
         </div>
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
           <h1 class="text-xl font-semibold text-white light:text-gray-900">{{ $t('dashboard.title') }}</h1>
           <p class="text-sm text-white/50 light:text-gray-500">{{ $t('dashboard.subtitle') }}</p>
         </div>
 
         <!-- Time Range Filter -->
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <Button v-if="canCreateWidget" variant="outline" size="sm" @click="openAddWidgetDialog" class="bg-white/[0.04] border-white/[0.1] text-white/70 hover:bg-white/[0.08] hover:text-white light:bg-white light:border-gray-200 light:text-gray-700">
             <Plus class="h-4 w-4 mr-2" />
             {{ $t('dashboard.addWidget') }}
@@ -749,7 +749,7 @@ onMounted(() => {
 
     <!-- Content -->
     <ScrollArea class="flex-1">
-      <div class="p-6 space-y-6">
+      <div class="p-3 md:p-6 space-y-6">
         <!-- Loading Skeleton -->
         <div v-if="isLoading" class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div v-for="i in 4" :key="i" class="rounded-xl border border-white/[0.08] bg-white/[0.02] p-6 light:bg-white light:border-gray-200">

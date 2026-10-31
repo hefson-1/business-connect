@@ -46,7 +46,7 @@ func main() {
 	case "worker":
 		runWorker(os.Args[2:])
 	case "version":
-		fmt.Printf("Whatomate %s (built %s)\n", Version, BuildTime)
+		fmt.Printf("Business Connect %s (built %s)\n", Version, BuildTime)
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -57,7 +57,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println(`Whatomate - WhatsApp Business API Platform
+	fmt.Println(`Business Connect - WhatsApp Business API Platform
 
 Usage:
   whatomate <command> [options]
@@ -110,7 +110,7 @@ func runServer(args []string) {
 		DefaultFields:   []any{"app", "whatomate"},
 	})
 
-	lo.Info("Starting Whatomate server...", "version", Version)
+	lo.Info("Starting Business Connect server...", "version", Version)
 
 	// Load configuration
 	cfg, err := config.Load(*configPath)
@@ -264,7 +264,7 @@ func runServer(args []string) {
 		ReadTimeout:        time.Duration(cfg.Server.ReadTimeout) * time.Second,
 		WriteTimeout:       time.Duration(cfg.Server.WriteTimeout) * time.Second,
 		MaxRequestBodySize: 15 * 1024 * 1024,
-		Name:               "Whatomate",
+		Name:               "Business Connect",
 	}
 
 	// Start server in goroutine
@@ -364,7 +364,7 @@ func runWorker(args []string) {
 		DefaultFields:   []any{"app", "whatomate-worker"},
 	})
 
-	lo.Info("Starting Whatomate worker...", "version", Version)
+	lo.Info("Starting Business Connect worker...", "version", Version)
 
 	// Load configuration
 	cfg, err := config.Load(*configPath)

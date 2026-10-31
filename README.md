@@ -1,3 +1,6 @@
+> **Business Connect** is a modified version of [Whatomate](https://github.com/shridarpatil/whatomate) by Shridar Patil, licensed under the GNU AGPL-3.0 (see [LICENSE](LICENSE)).
+> Changes made by Hefson, October 2026: renamed to "Business Connect" in the interface, server and webhook user agent; app icons and web-app manifest added; small layout adjustments in the chat, dashboard and settings screens; a "Source code" link in the user menu; Docker Compose builds the local image and publishes its port on 127.0.0.1 only. Every change is in this repository's history.
+
 <a href="https://zerodha.tech"><img src="https://zerodha.tech/static/images/github-badge.svg" align="right" alt="Zerodha Tech Badge" /></a>
 
 # Whatomate
