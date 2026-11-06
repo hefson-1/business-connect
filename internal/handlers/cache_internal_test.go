@@ -222,6 +222,43 @@ func TestGetWebhooksCached_CacheHitSkipsDB(t *testing.T) {
 	assert.Equal(t, "from-cache", got[0].Name, "cache hit must skip the DB read")
 }
 
+// No database needed: the round trip through the cache keeps the signing secret.
+func TestWebhookCacheRoundTripKeepsSecret(t *testing.T) {
+	data, err := webhooksToCache([]models.Webhook{{Name: "signed", Secret: "s3cret"}})
+	require.NoError(t, err)
+	got, err := webhooksFromCache(data)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, "signed", got[0].Name)
+	assert.Equal(t, "s3cret", got[0].Secret)
+
+	// What the old code cached: the plain model, which drops the secret.
+	plain, err := json.Marshal([]models.Webhook{{Name: "signed", Secret: "s3cret"}})
+	require.NoError(t, err)
+	assert.NotContains(t, string(plain), "s3cret")
+}
+
+// A cached webhook must still be signed: Secret is json:"-" on the model.
+func TestGetWebhooksCached_CacheHitKeepsSecret(t *testing.T) {
+	app := cacheTestApp(t)
+	org := testutil.CreateTestOrganization(t, app.DB)
+	require.NoError(t, app.DB.Create(&models.Webhook{
+		BaseModel: models.BaseModel{ID: uuid.New()}, OrganizationID: org.ID,
+		Name: "signed", URL: "https://s.example.com", IsActive: true, Secret: "s3cret",
+	}).Error)
+	app.InvalidateWebhooksCache(org.ID)
+
+	first, err := app.getWebhooksCached(org.ID) // from the DB, fills the cache
+	require.NoError(t, err)
+	require.Len(t, first, 1)
+	require.NoError(t, app.DB.Where("organization_id = ?", org.ID).Delete(&models.Webhook{}).Error)
+
+	second, err := app.getWebhooksCached(org.ID) // from the cache only
+	require.NoError(t, err)
+	require.Len(t, second, 1)
+	assert.Equal(t, "s3cret", second[0].Secret)
+}
+
 func TestInvalidateWebhooksCache_DeletesKey(t *testing.T) {
 	app := cacheTestApp(t)
 	orgID := uuid.New()

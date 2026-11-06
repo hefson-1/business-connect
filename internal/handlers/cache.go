@@ -272,8 +272,7 @@ func (a *App) getWebhooksCached(orgID uuid.UUID) ([]models.Webhook, error) {
 	// Try cache first
 	cached, err := a.Redis.Get(ctx, cacheKey).Result()
 	if err == nil && cached != "" {
-		var webhooks []models.Webhook
-		if err := json.Unmarshal([]byte(cached), &webhooks); err == nil {
+		if webhooks, err := webhooksFromCache([]byte(cached)); err == nil {
 			return webhooks, nil
 		}
 	}
@@ -284,11 +283,39 @@ func (a *App) getWebhooksCached(orgID uuid.UUID) ([]models.Webhook, error) {
 		return nil, err
 	}
 
-	// Cache the result
-	if data, err := json.Marshal(webhooks); err == nil {
+	if data, err := webhooksToCache(webhooks); err == nil {
 		a.Redis.Set(ctx, cacheKey, data, webhooksCacheTTL)
 	}
 
+	return webhooks, nil
+}
+
+// webhookCache is a webhook as cached. Secret is json:"-" on the model, so it is
+// carried explicitly: without it every delivery served from the cache went out
+// unsigned and a receiver checking X-Webhook-Signature rejected it.
+type webhookCache struct {
+	models.Webhook
+	Secret string `json:"secret"`
+}
+
+func webhooksToCache(webhooks []models.Webhook) ([]byte, error) {
+	entries := make([]webhookCache, len(webhooks))
+	for i, w := range webhooks {
+		entries[i] = webhookCache{Webhook: w, Secret: w.Secret}
+	}
+	return json.Marshal(entries)
+}
+
+func webhooksFromCache(data []byte) ([]models.Webhook, error) {
+	var entries []webhookCache
+	if err := json.Unmarshal(data, &entries); err != nil {
+		return nil, err
+	}
+	webhooks := make([]models.Webhook, len(entries))
+	for i, e := range entries {
+		webhooks[i] = e.Webhook
+		webhooks[i].Secret = e.Secret
+	}
 	return webhooks, nil
 }
 
