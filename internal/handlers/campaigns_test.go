@@ -2,6 +2,7 @@ package handlers_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -696,6 +697,38 @@ func TestApp_ImportRecipients_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, resp.Data.AddedCount)
 	assert.Equal(t, int64(2), resp.Data.TotalRecipients)
+}
+
+// More rows than one INSERT can carry: Postgres caps a statement at 65,535
+// parameters, which a single insert of ~4,000 recipients exceeded.
+func TestApp_ImportRecipients_Large(t *testing.T) {
+	mockQueue := testutil.NewMockQueue()
+	app := newTestApp(t, withQueue(mockQueue))
+	org := testutil.CreateTestOrganization(t, app.DB)
+	user := testutil.CreateTestUser(t, app.DB, org.ID, testutil.WithEmail(testutil.UniqueEmail("import-large")), testutil.WithPassword("password"))
+	account := testutil.CreateTestWhatsAppAccountWith(t, app.DB, org.ID, testutil.WithAccountName("import-large-account"))
+	template := testutil.CreateTestTemplate(t, app.DB, org.ID, account.Name)
+	campaign := createTestCampaign(t, app, org.ID, template.ID, user.ID, account.Name, models.CampaignStatusDraft)
+
+	const n = 6000
+	recipients := make([]map[string]any, n)
+	for i := range recipients {
+		recipients[i] = map[string]any{
+			"phone_number":    fmt.Sprintf("+91900%07d", i),
+			"recipient_name":  fmt.Sprintf("Customer %d", i),
+			"template_params": map[string]any{"1": "Customer"},
+		}
+	}
+	req := testutil.NewJSONRequest(t, map[string]any{"recipients": recipients})
+	testutil.SetAuthContext(req, org.ID, user.ID)
+	testutil.SetPathParam(req, "id", campaign.ID.String())
+
+	require.NoError(t, app.ImportRecipients(req))
+	assert.Equal(t, fasthttp.StatusOK, testutil.GetResponseStatusCode(req))
+
+	var count int64
+	app.DB.Model(&models.BulkMessageRecipient{}).Where("campaign_id = ?", campaign.ID).Count(&count)
+	assert.Equal(t, int64(n), count)
 }
 
 func TestApp_ImportRecipients_WithTemplateParams(t *testing.T) {

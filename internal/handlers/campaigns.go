@@ -687,7 +687,10 @@ func (a *App) ImportRecipients(r *fastglue.Request) error {
 		}
 	}
 
-	if err := a.DB.Create(&recipients).Error; err != nil {
+	// In batches: one INSERT of every row passes Postgres's 65,535-parameter
+	// limit at roughly 4,000 recipients. CreateInBatches runs in one transaction,
+	// so a failure still adds nobody.
+	if err := a.DB.CreateInBatches(&recipients, 1000).Error; err != nil {
 		a.Log.Error("Failed to add recipients", "error", err)
 		return r.SendErrorEnvelope(fasthttp.StatusInternalServerError, "Failed to add recipients", nil, "")
 	}
