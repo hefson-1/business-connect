@@ -23,6 +23,7 @@ onMounted(async () => {
 
     // Set auth in store (only user — tokens are in httpOnly cookies)
     authStore.setAuth({ user })
+    await authStore.applyRememberedOrg()
 
     status.value = 'success'
     toast.success(t('auth.ssoLoginSuccess'))

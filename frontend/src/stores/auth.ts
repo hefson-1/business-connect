@@ -131,6 +131,27 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await api.post('/auth/login', { email, password })
     // Server sets cookies; response body has { user, expires_in }
     setAuth({ user: response.data.data.user })
+    await applyRememberedOrg()
+  }
+
+  /**
+   * A fresh sign-in (password or SSO) issues a token for the home org, while the
+   * org chosen earlier is still remembered here. Axios calls follow the
+   * remembered org through X-Organization-ID, but <img>/<video> media and the
+   * WebSocket follow the token, so media from the remembered org 404s. Re-apply
+   * the choice through switch-org; if it no longer works, forget it.
+   *
+   * Always switch when something is remembered: /me honours the header, so the
+   * user object cannot tell us which org the new token names.
+   */
+  async function applyRememberedOrg(): Promise<void> {
+    const remembered = localStorage.getItem('selected_organization_id')
+    if (!remembered) return
+    try {
+      await switchOrg(remembered)
+    } catch {
+      localStorage.removeItem('selected_organization_id')
+    }
   }
 
   async function register(data: {
@@ -211,6 +232,7 @@ export const useAuthStore = defineStore('auth', () => {
     restoreBreakTime,
     refreshUserData,
     login,
+    applyRememberedOrg,
     register,
     switchOrg,
     logout,
