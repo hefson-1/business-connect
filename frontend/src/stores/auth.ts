@@ -135,22 +135,29 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * A fresh sign-in (password or SSO) issues a token for the home org, while the
-   * org chosen earlier is still remembered here. Axios calls follow the
-   * remembered org through X-Organization-ID, but <img>/<video> media and the
+   * The org chosen earlier is remembered here, but the session token can name a
+   * different one: a fresh sign-in (password or SSO) names the home org, and a
+   * session from before the choice keeps its old org. Axios calls follow the
+   * remembered org through X-Organization-ID, while <img>/<video> media and the
    * WebSocket follow the token, so media from the remembered org 404s. Re-apply
-   * the choice through switch-org; if it no longer works, forget it.
+   * the choice through switch-org; if the server refuses it, forget it.
    *
    * Always switch when something is remembered: /me honours the header, so the
-   * user object cannot tell us which org the new token names.
+   * user object cannot tell us which org the token names. `onceThisPage` lets the
+   * router call this on every navigation while it runs once per page load.
    */
-  async function applyRememberedOrg(): Promise<void> {
+  let rememberedOrgApplied = false
+  async function applyRememberedOrg(onceThisPage = false): Promise<void> {
+    if (onceThisPage && rememberedOrgApplied) return
+    rememberedOrgApplied = true
     const remembered = localStorage.getItem('selected_organization_id')
     if (!remembered) return
     try {
       await switchOrg(remembered)
-    } catch {
-      localStorage.removeItem('selected_organization_id')
+    } catch (err: any) {
+      // Only a refusal means the choice is stale; a network blip must not lose it.
+      const status = err?.response?.status
+      if (status === 403 || status === 404) localStorage.removeItem('selected_organization_id')
     }
   }
 

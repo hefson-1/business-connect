@@ -411,6 +411,9 @@ router.beforeEach(async (to, _from, next) => {
       return next({ name: 'login', query: { redirect: to.fullPath } })
     }
 
+    // Before any page loads media, make the session token name the chosen org.
+    await authStore.applyRememberedOrg(true)
+
     // Check permission-based access
     const requiredPermission = to.meta.permission
     if (requiredPermission) {

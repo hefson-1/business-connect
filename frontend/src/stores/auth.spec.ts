@@ -48,12 +48,33 @@ describe('applyRememberedOrg after a fresh sign-in', () => {
   it('forgets a choice the server refuses, so requests stop naming that org', async () => {
     store.set('selected_organization_id', 'gone-org')
     post.mockImplementation(async (url: string) => {
-      if (url === '/auth/switch-org') throw new Error('403')
+      if (url === '/auth/switch-org') throw Object.assign(new Error('403'), { response: { status: 403 } })
       return { data: { data: { user: home } } }
     })
     const auth = useAuthStore()
     await auth.login('a@b.c', 'pw')
     expect(store.has('selected_organization_id')).toBe(false)
     expect(auth.organizationId).toBe('home-org')
+  })
+
+  it('keeps the choice when switching fails for another reason', async () => {
+    store.set('selected_organization_id', 'vinfast-org')
+    post.mockRejectedValue(new Error('network down'))
+    const auth = useAuthStore()
+    await auth.applyRememberedOrg()
+    expect(store.get('selected_organization_id')).toBe('vinfast-org')
+  })
+})
+
+describe('applyRememberedOrg on page load (router)', () => {
+  it('switches once per page, however many navigations follow', async () => {
+    store.set('selected_organization_id', 'vinfast-org')
+    post.mockResolvedValue({ data: { data: { user: { ...home, organization_id: 'vinfast-org' } } } })
+    const auth = useAuthStore()
+    await auth.applyRememberedOrg(true)
+    await auth.applyRememberedOrg(true)
+    await auth.applyRememberedOrg(true)
+    expect(post).toHaveBeenCalledTimes(1)
+    expect(post).toHaveBeenCalledWith('/auth/switch-org', { organization_id: 'vinfast-org' })
   })
 })
